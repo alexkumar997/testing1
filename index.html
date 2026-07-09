@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Emperor FM</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/player.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+
+  <!-- ── Firebase Analytics ─────────────────────────────────────────────── -->
+  <!-- Compat SDK: synchronous load — window.logAnalyticsEvent is available  -->
+  <!-- before any other app script runs                                       -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
+  <script>
+    // Safe fallback — overwritten below if Firebase loads successfully
+    window.analytics = null;
+    window.logAnalyticsEvent = function() {};
+
+    try {
+      var firebaseConfig = {
+        apiKey:            'AIzaSyBmk7kmECnGRPEtaq9NsI-gnLvxNEAplqM',
+        authDomain:        'emperor-fm-5d306.firebaseapp.com',
+        projectId:         'emperor-fm-5d306',
+        storageBucket:     'emperor-fm-5d306.firebasestorage.app',
+        messagingSenderId: '84382047306',
+        appId:             '1:84382047306:web:c85649e69682340b9bdab3',
+        measurementId:     'G-2KH42T8BZV'
+      };
+      firebase.initializeApp(firebaseConfig);
+      window.analytics = firebase.analytics();
+
+      // Global helper — null-safe, never throws
+      window.logAnalyticsEvent = function(eventName, params) {
+        try {
+          if (window.analytics) window.analytics.logEvent(eventName, params || {});
+        } catch (e) {
+          console.log('[FIREBASE] logEvent error:', e.message);
+        }
+      };
+
+      console.log('[FIREBASE] Analytics initialized ✓ (measurementId: G-2KH42T8BZV)');
+    } catch (e) {
+      // Analytics failure must never break the app
+      window.analytics = null;
+      window.logAnalyticsEvent = function() {};
+      console.log('[FIREBASE] Analytics init failed (non-fatal):', e.message);
+    }
+  </script>
+  <!-- ── End Firebase Analytics ────────────────────────────────────────── -->
+</head>
+<body>
+
+  <!-- Splash Screen -->
+  <div id="splash-screen" class="splash-screen">
+    <div class="splash-content">
+      <img src="https://cdn.jsdelivr.net/gh/tashven/Profile@main/P.jpg" alt="Emperor FM" class="splash-logo">
+      <h1 class="splash-title">Emperor FM</h1>
+      <div class="splash-loader">
+        <div class="loader-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Container -->
+  <div id="app" class="app hidden">
+
+    <!-- Header (Fixed) -->
+    <header class="app-header" id="app-header">
+      <div class="header-left">
+        <img src="https://cdn.jsdelivr.net/gh/tashven/Profile@main/P.jpg" alt="Emperor FM" class="header-logo">
+        <span class="header-title">Emperor FM</span>
+      </div>
+      <div class="header-right">
+        <button class="icon-btn" id="notification-btn" onclick="showPage('notifications')">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="notif-badge hidden" id="notif-badge">0</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Pages Container -->
+    <main class="pages-container" id="pages-container">
+
+      <!-- Home Page -->
+      <div class="page active" id="page-home">
+
+        <!-- Slider -->
+        <section class="slider-section">
+          <div class="slider-wrapper" id="home-slider">
+            <div class="slider-track" id="slider-track">
+              <div class="slide skeleton-slide"></div>
+            </div>
+            <div class="slider-dots" id="slider-dots"></div>
+          </div>
+        </section>
+
+        <!-- Continue Watching -->
+        <section class="section" id="continue-section" style="display:none">
+          <div class="section-header">
+            <h2 class="section-title">Continue Watching</h2>
+          </div>
+          <div class="horizontal-scroll-wrapper">
+            <div class="horizontal-scroll" id="continue-list"></div>
+          </div>
+        </section>
+
+        <!-- Trending -->
+        <section class="section">
+          <div class="section-header">
+            <h2 class="section-title">Trending</h2>
+          </div>
+          <div class="horizontal-scroll-wrapper">
+            <div class="horizontal-scroll" id="trending-list">
+              <div class="story-card-h skeleton"></div>
+              <div class="story-card-h skeleton"></div>
+              <div class="story-card-h skeleton"></div>
+            </div>
+          </div>
+          <div class="trending-banner-ad" id="trending-banner-container"></div>
+        </section>
+
+        <!-- Categories -->
+        <section class="section categories-section">
+          <div class="category-tabs-wrapper">
+            <div class="category-tabs" id="category-tabs">
+              <button class="cat-tab active" data-cat="all">All</button>
+              <button class="cat-tab" data-cat="fantasy">Fantasy</button>
+              <button class="cat-tab" data-cat="drama">Drama</button>
+              <button class="cat-tab" data-cat="comedy">Comedy</button>
+              <button class="cat-tab" data-cat="romance">Romance</button>
+              <button class="cat-tab" data-cat="thriller">Thriller</button>
+            </div>
+          </div>
+          <div class="stories-grid" id="category-stories">
+            <div class="grid-card skeleton"></div>
+            <div class="grid-card skeleton"></div>
+            <div class="grid-card skeleton"></div>
+            <div class="grid-card skeleton"></div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Library Page -->
+      <div class="page" id="page-library">
+        <div class="page-inner">
+          <h2 class="page-heading">Library</h2>
+
+          <section class="section">
+            <div class="section-header">
+              <h3 class="section-title">Liked Stories</h3>
+            </div>
+            <div class="stories-grid" id="liked-stories">
+              <div class="empty-state hidden" id="liked-empty">No liked stories yet</div>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section-header">
+              <h3 class="section-title">Saved Stories</h3>
+            </div>
+            <div class="stories-grid" id="saved-stories">
+              <div class="empty-state hidden" id="saved-empty">No saved stories yet</div>
+            </div>
+          </section>
+
+          <section class="section" id="library-continue-section" style="display:none">
+            <div class="section-header">
+              <h3 class="section-title">Continue Watching</h3>
+            </div>
+            <div class="horizontal-scroll-wrapper">
+              <div class="horizontal-scroll" id="library-continue-list"></div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- Profile Page -->
+      <div class="page" id="page-profile">
+        <div class="page-inner">
+          <div class="profile-top">
+            <div class="profile-avatar" id="profile-avatar">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+            <div class="profile-info">
+              <div class="profile-name" id="profile-name">Guest User</div>
+              <div class="profile-uid-row">
+              <span class="profile-uid" id="profile-uid">UID: —</span>
+              <button class="uid-copy-btn" id="uid-copy-btn" onclick="copyUID()" title="Copy UID">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+            </div>
+          </div>
+
+          <div class="profile-options">
+            <div class="profile-option" id="auth-option" onclick="handleAuthClick()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                <polyline points="10 17 15 12 10 7"/>
+                <line x1="15" y1="12" x2="3" y2="12"/>
+              </svg>
+              <span id="auth-label">Login</span>
+              <svg class="option-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
+
+            <div class="profile-option" onclick="showPage('about')">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <span>About App</span>
+              <svg class="option-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
+
+            <div class="profile-option" onclick="showContactSupport()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.06 6.06l1.27-.88a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+              <span>Support / Contact</span>
+              <svg class="option-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
+            <div class="profile-option" onclick="showPage('policy')">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <span>Policy &amp; Agreement</span>
+              <svg class="option-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
+
+          <div class="profile-option" onclick="window.open('https://emperorfm-apk.netlify.app','_blank')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span>Click here to download Emperor Fm Apk</span>
+            <svg class="option-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+          </div>
+
+          <div class="profile-option" onclick="window.open('https://t.me/emperor_fm_official','_blank')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            <span>Join our Telegram channel for backup or any updates</span>
+            <svg class="option-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <!-- Story Detail Page -->
+      <div class="page" id="page-story-detail">
+        <div class="story-detail-inner">
+          <button class="back-btn" onclick="goBack()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+          <div class="story-banner-outer">
+            <div class="story-banner-inner">
+              <div class="story-banner-sq">
+                <img id="detail-banner" src="" alt="">
+              </div>
+            </div>
+          </div>
+          <div class="story-detail-content">
+            <h1 class="story-detail-title" id="detail-title"></h1>
+            <div class="story-detail-meta">
+              <span id="detail-views">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <span id="detail-views-count">0</span> views
+              </span>
+              <span id="detail-episodes-count">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                <span id="detail-ep-count">0</span> Episodes
+              </span>
+            </div>
+
+            <div class="detail-actions">
+              <button class="action-btn like-btn" id="detail-like-btn" onclick="toggleLike()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+                <span id="detail-likes-count">0</span>
+              </button>
+              <button class="action-btn library-btn" id="detail-library-btn" onclick="toggleLibrary()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                <span>Add to Library</span>
+              </button>
+            </div>
+
+            <button class="play-btn-main" id="detail-play-btn" onclick="playFromDetail()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              <span id="play-btn-label">Start Listening</span>
+            </button>
+
+            <!-- Comments -->
+            <div class="comments-section">
+              <h3 class="comments-title">Comments</h3>
+              <div class="native-ad-wrap" id="native-ad-container"></div>
+              <div class="comment-input-wrap">
+                <input type="text" id="comment-input" class="comment-input" placeholder="Add a comment…">
+                <button class="comment-submit" onclick="submitComment()">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"/>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="comments-list" id="comments-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audio Player Page -->
+      <div class="page" id="page-player">
+        <div class="player-page-inner">
+          <button class="back-btn player-back" onclick="minimizePlayer()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="19 12 5 12"/>
+              <polyline points="12 19 5 12 12 5"/>
+            </svg>
+          </button>
+
+          <div class="player-thumb-wrap" id="player-thumb-wrap">
+            <img class="player-thumb" id="player-thumb" src="" alt="">
+            <video class="player-video hidden" id="player-video" playsinline webkit-playsinline x5-playsinline x5-video-player-type="h5"></video>
+            <div class="video-tap-overlay hidden" id="video-tap-overlay" onclick="togglePlay()">
+              <div class="video-tap-icon" id="video-tap-icon"></div>
+            </div>
+          </div>
+
+          <div class="player-info">
+            <div class="player-story-name" id="player-story-name"></div>
+            <div class="player-ep-name" id="player-ep-name"></div>
+          </div>
+
+          <div class="player-progress-wrap">
+            <input type="range" class="player-seek" id="player-seek" value="0" min="0" max="100" step="0.1">
+            <div class="player-times">
+              <span id="player-current-time">0:00</span>
+              <span id="player-duration">0:00</span>
+            </div>
+          </div>
+
+          <div class="player-controls">
+            <button class="ctrl-btn" onclick="prevEpisode()">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"/>
+              </svg>
+            </button>
+            <button class="ctrl-btn" onclick="seekBackward()">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 .49-4.26"/>
+              </svg>
+              <span class="ctrl-label">10</span>
+            </button>
+            <button class="ctrl-btn play-pause-btn" id="play-pause-btn" onclick="togglePlay()">
+              <svg id="play-icon" width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              <svg id="pause-icon" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" class="hidden">
+                <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+              </svg>
+            </button>
+            <button class="ctrl-btn" onclick="seekForward()">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-.49-4.26"/>
+              </svg>
+              <span class="ctrl-label">10</span>
+            </button>
+            <button class="ctrl-btn" onclick="nextEpisode()">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Fullscreen button — only visible in video mode -->
+          <div class="video-fullscreen-bar hidden" id="video-fullscreen-bar">
+            <button class="fullscreen-btn" onclick="toggleFullscreen()">
+              <svg id="fs-expand-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+                <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+              </svg>
+              <svg id="fs-compress-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hidden">
+                <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
+                <line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>
+              </svg>
+              <span id="fs-label">Fullscreen</span>
+            </button>
+          </div>
+
+          <div class="speed-control">
+            <div class="speed-label">Speed</div>
+            <div class="speed-options" id="speed-options">
+              <button class="speed-btn" data-speed="0.5">0.5x</button>
+              <button class="speed-btn" data-speed="1" class="active">1x</button>
+              <button class="speed-btn" data-speed="1.25">1.25x</button>
+              <button class="speed-btn active" data-speed="1.5">1.5x</button>
+              <button class="speed-btn" data-speed="1.75">1.75x</button>
+              <button class="speed-btn" data-speed="2">2x</button>
+              <button class="speed-btn" data-speed="2.25">2.25x</button>
+              <button class="speed-btn" data-speed="2.5">2.5x</button>
+            </div>
+          </div>
+
+          <!-- Episode Shortcut — directly below speed controller -->
+          <div class="ep-shortcut-bar">
+            <input type="number" id="ep-jump-input" class="ep-jump-input" placeholder="Episode #" min="1">
+            <button class="ep-jump-btn" onclick="jumpToEpisode()">Go to Episode</button>
+            <button class="ep-current-btn" onclick="scrollToCurrentEpisode()">Current Episode</button>
+          </div>
+
+          <div class="episode-list-section">
+            <h3 class="ep-list-title">Episodes</h3>
+            <div class="episode-list" id="player-episode-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notifications Page -->
+      <div class="page" id="page-notifications">
+        <div class="page-inner">
+          <button class="back-btn" onclick="goBack()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+          <h2 class="page-heading">Notifications</h2>
+          <div class="notifications-list" id="notifications-list">
+            <div class="empty-state">No notifications yet</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Policy & Agreement Page -->
+      <div class="page" id="page-policy">
+        <div class="page-inner" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+          <button class="back-btn" onclick="goBack()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+          <div class="policy-content">
+            <!-- Live Token Counter -->
+            <div class="policy-token-hero">
+              <div class="policy-token-hero-label">Play Tokens Available</div>
+              <div class="policy-token-count" id="policy-token-count">—</div>
+              <div class="policy-token-sublabel">Global Server Tokens</div>
+              <div class="policy-token-status" id="policy-token-status">Loading…</div>
+            </div>
+
+            <!-- Rules Section -->
+            <div class="policy-rules">
+              <h3>Play Token Rule</h3>
+              <div class="policy-rule-text">
+                <p>Play Tokens are used to control server load and heavy traffic.</p>
+                <ul>
+                  <li>Limited tokens are added every hour</li>
+                  <li>Every valid story play uses 1 token</li>
+                  <li>A valid play counts only after 50% playback completion</li>
+                </ul>
+
+                <div class="policy-example">
+                  <strong>Example:</strong><br>
+                  4 AM → 200 tokens added<br>
+                  1 valid play → 199 remaining<br>
+                  Next valid play → 198 remaining
+                </div>
+
+                <p>Unused tokens carry forward to the next hour.</p>
+                <p>New tokens are added every hour from 4 AM to 10 PM.</p>
+                <p>After 11 PM no new tokens are added.</p>
+                <p>At 4 AM daily reset starts a new token cycle.</p>
+
+                <div class="policy-limit-box">
+                  If hourly tokens are exhausted:<br>
+                  <em>"Hourly server limit reached. Please try again next hour."</em>
+                </div>
+
+                <div class="policy-limit-box">
+                  If daily limit is exhausted:<br>
+                  <em>"Daily server limit reached. Please try again next day."</em>
+                </div>
+
+                <p class="policy-footer-note">This system exists to protect server stability and distribute traffic fairly across all users.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- About Page -->
+      <div class="page" id="page-about">
+        <div class="page-inner">
+          <button class="back-btn" onclick="goBack()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+          <div class="about-content">
+            <img src="https://cdn.jsdelivr.net/gh/tashven/Profile@main/P.jpg" alt="Emperor FM" class="about-logo">
+            <h2>Emperor FM</h2>
+            <p class="about-version">Version 1.4.2</p>
+            <p class="about-desc">Your premium audio stories platform. Listen to the best stories anytime, anywhere.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Login Page -->
+      <div class="page" id="page-login">
+        <div class="auth-page-scroll">
+          <div class="auth-top-bar">
+            <button class="auth-back-icon hidden" id="auth-back-btn" onclick="goBackInAuth()">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            <button class="auth-close-icon" onclick="goBack()">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="auth-form">
+            <img src="https://cdn.jsdelivr.net/gh/tashven/Profile@main/P.jpg" alt="Emperor FM" class="auth-logo">
+            <h2 id="auth-title">Welcome Back</h2>
+            <p id="auth-subtitle" class="auth-subtitle">Login to continue your journey</p>
+
+            <!-- Mode Tabs -->
+            <div class="auth-tabs" id="auth-tabs">
+              <button class="auth-tab active" data-mode="login" onclick="switchAuthMode('login')">Login</button>
+              <button class="auth-tab" data-mode="signup" onclick="switchAuthMode('signup')">Sign Up</button>
+            </div>
+
+            <!-- Step: Login with Password -->
+            <div id="step-login-pass" class="auth-step">
+              <input type="email" id="login-email" class="auth-input" placeholder="Email address" autocomplete="email">
+              <input type="password" id="login-password" class="auth-input" placeholder="Password" autocomplete="current-password">
+              <button class="auth-btn" id="btn-login-pass" onclick="loginWithPassword()">Login</button>
+              <div class="auth-divider"><span>or</span></div>
+              <button class="auth-btn auth-btn-outline" onclick="switchToOTPLogin()">Login with OTP</button>
+            </div>
+
+            <!-- Step: Login OTP - Send -->
+            <div id="step-login-otp-send" class="auth-step hidden">
+              <input type="email" id="login-otp-email" class="auth-input" placeholder="Email address" autocomplete="email">
+              <button class="auth-btn" id="btn-send-login-otp" onclick="sendLoginOTP()">Send OTP</button>
+              <button class="auth-btn auth-btn-ghost" onclick="switchToPasswordLogin()">Back to Password Login</button>
+            </div>
+
+            <!-- Step: OTP Verify (shared) -->
+            <div id="step-otp-verify" class="auth-step hidden">
+              <div class="otp-boxes" id="otp-boxes"></div>
+              <button class="auth-btn" id="btn-verify-otp" onclick="verifyOTP()">Verify OTP</button>
+              <div class="resend-wrap">
+                <button class="resend-btn" id="resend-btn" onclick="resendOTP()" disabled>
+                  <span id="resend-text">Resend OTP (3:00)</span>
+                </button>
+              </div>
+              <button class="auth-btn auth-btn-ghost" onclick="goBackInAuth()">Go Back</button>
+            </div>
+
+            <!-- Step: Signup - Enter Email -->
+            <div id="step-signup-email" class="auth-step hidden">
+              <input type="email" id="signup-email" class="auth-input" placeholder="Email address" autocomplete="email">
+              <button class="auth-btn" id="btn-send-signup-otp" onclick="sendSignupOTP()">Send OTP</button>
+            </div>
+
+            <!-- Step: Profile Setup (after OTP verified for signup) -->
+            <div id="step-profile-setup" class="auth-step hidden">
+              <input type="text" id="setup-name" class="auth-input" placeholder="Your Full Name" autocomplete="name">
+              <select id="setup-gender" class="auth-input auth-select">
+                <option value="">Select Gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+              <input type="number" id="setup-age" class="auth-input" placeholder="Age" min="13" max="100">
+              <input type="password" id="setup-password" class="auth-input" placeholder="Create Password (min 6 chars)" autocomplete="new-password">
+              <input type="password" id="setup-password-confirm" class="auth-input" placeholder="Confirm Password" autocomplete="new-password">
+              <button class="auth-btn" id="btn-save-profile" onclick="saveProfile()">Save & Continue</button>
+            </div>
+
+            <div id="auth-msg" class="auth-msg"></div>
+
+            <button class="auth-btn auth-btn-ghost" id="guest-btn" onclick="continueAsGuest()">Continue as Guest</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Mini Player -->
+    <div class="mini-player hidden" id="mini-player" onclick="openFullPlayer()">
+      <img class="mini-thumb" id="mini-thumb" src="" alt="">
+      <div class="mini-info">
+        <div class="mini-story" id="mini-story-name"></div>
+        <div class="mini-ep" id="mini-ep-name"></div>
+        <div class="mini-progress-bar">
+          <div class="mini-progress-fill" id="mini-progress-fill"></div>
+        </div>
+      </div>
+      <div class="mini-controls" onclick="event.stopPropagation()">
+        <button class="mini-btn" onclick="togglePlay()">
+          <svg id="mini-play-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          <svg id="mini-pause-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="hidden">
+            <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+          </svg>
+        </button>
+        <button class="mini-btn" onclick="nextEpisode()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav" id="bottom-nav">
+      <button class="nav-btn active" data-page="home" onclick="showPage('home')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Home</span>
+      </button>
+      <button class="nav-btn" data-page="library" onclick="showPage('library')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+        <span>Library</span>
+      </button>
+      <button class="nav-btn" data-page="profile" onclick="showPage('profile')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span>Profile</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- Hidden Audio Element -->
+  <audio id="audio-element" preload="auto"></audio>
+
+  <!-- Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/cache.js"></script>
+  <script src="js/episode-supabases.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/tokens.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/home.js"></script>
+  <script src="js/library.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/ads.js"></script>
+  <script src="js/background.js"></script>
+  <!-- CW DEBUG PANEL — remove js/cwdebug.js and this line when debugging is done -->
+  <script src="js/cwdebug.js"></script>
+  <!-- DEVELOPER DEBUG PANEL — gated by const DEBUG_PANEL in js/debug-panel.js; zero cost when false -->
+  <script src="js/debug-panel.js"></script>
+
+</body>
+</html>
