@@ -37,14 +37,14 @@ window.__EPISODE_SUPABASES__ = [
   {
     name:       'Episode Supabase 1',
     storyStart: 1,
-    storyEnd:   20,
+    storyEnd:   10,
     url:        'https://kdsmutiifajcxfljwwgt.supabase.co',
     key:        'sb_publishable_FGkffF-jV67xtCWHZ5SUPA_Ado3OLAU'
   },
   {
     name:       'Episode Supabase 2',
-    storyStart: 21,
-    storyEnd:   40,
+    storyStart: 11,
+    storyEnd:   20,
     url:        'https://xvtzmeisxwjidicyvucm.supabase.co',
     key:        'sb_publishable_POqvj6BVph4mQ0O42AQGug_Mbeo2IkZ'
   }
