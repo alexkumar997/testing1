@@ -409,7 +409,7 @@ function startTokenEngine() {
   _engineTimer = setInterval(function() {
     console.log('[ENGINE] Periodic sync…');
     fetchAndSyncTokens();
-  }, 5 * 60 * 1000);
+  }, 20 * 60 * 1000);
 
   // 3. Sync when app returns to foreground after being backgrounded
   document.addEventListener('visibilitychange', function() {
